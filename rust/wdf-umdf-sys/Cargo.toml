@@ -14,4 +14,4 @@ thiserror = "2.0.3"
 [build-dependencies]
 bindgen = "0.70.1"
 thiserror = "2.0.3"
-winreg = "0.52.0"
+winreg = "0.55.0"
