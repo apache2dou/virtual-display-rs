@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::anyhow;
-use log::{error, warn};
+use log::{error, warn, debug};
 use wdf_umdf::{
     IddCxAdapterInitAsync, IddCxError, IddCxMonitorArrival, IddCxMonitorCreate,
     IddCxMonitorSetupHardwareCursor, WdfError, WdfObjectDelete, WDF_DECLARE_CONTEXT_TYPE,
@@ -144,6 +144,7 @@ impl DeviceContext {
     }
 
     pub fn create_monitor(&mut self, index: u32) -> Result<(), ContextError> {
+        debug!("entering");
         let mut attr =
             WDF_OBJECT_ATTRIBUTES::init_context_type(unsafe { MonitorContext::get_type_info() });
 

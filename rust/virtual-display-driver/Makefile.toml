@@ -4,7 +4,8 @@ env_scripts = [
 #!@duckscript
 CI = get_env CI
 Program_Files = get_env ProgramFiles
-BAT_PATH = set "${Program_Files}\\Microsoft Visual Studio\\2022\\Community\\Common7\\Tools\\VsDevCmd.bat"
+# BAT_PATH = set "${Program_Files}\\Microsoft Visual Studio\\2022\\Community\\Common7\\Tools\\VsDevCmd.bat"
+BAT_PATH = set "${Program_Files}\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\Tools\\VsDevCmd.bat"
 if not is_empty ${CI}
     BAT_PATH = set "${Program_Files}\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\Tools\\VsDevCmd.bat"
 end
@@ -47,7 +48,8 @@ SIGN_OPTIONS = { script = ['''
 if defined CI (
     echo /f ../../private.pfx /p %PRIVATE_KEY_PASSWORD%
 ) else (
-    echo /sm /n DriverCertificate
+    # echo /sm /n DriverCertificate
+    echo /f E:\virtual-display-rs\WLTest.pfx /p 123456
 )
 '''] }
 # default development env settings (set by default)

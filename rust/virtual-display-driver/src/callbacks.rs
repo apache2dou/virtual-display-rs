@@ -3,7 +3,7 @@ use std::{
     ptr::NonNull,
 };
 
-use log::error;
+use log::{error, debug};
 use wdf_umdf_sys::{
     DISPLAYCONFIG_VIDEO_SIGNAL_INFO__bindgen_ty_1,
     DISPLAYCONFIG_VIDEO_SIGNAL_INFO__bindgen_ty_1__bindgen_ty_1, __BindgenBitfieldUnit,
@@ -104,6 +104,7 @@ pub extern "C-unwind" fn parse_monitor_description(
     p_in_args: *const IDARG_IN_PARSEMONITORDESCRIPTION,
     p_out_args: *mut IDARG_OUT_PARSEMONITORDESCRIPTION,
 ) -> NTSTATUS {
+    debug!("entering");
     let in_args = unsafe { &*p_in_args };
     let out_args = unsafe { &mut *p_out_args };
 
@@ -229,7 +230,7 @@ pub extern "C-unwind" fn monitor_query_modes(
     p_out_args: *mut IDARG_OUT_QUERYTARGETMODES,
 ) -> NTSTATUS {
     // find out which monitor this belongs too
-
+    debug!("entering");
     let Ok(monitors) = MONITOR_MODES.lock() else {
         error!("MONITOR_MODES mutex poisoned");
         return NTSTATUS::STATUS_DRIVER_INTERNAL_ERROR;
@@ -259,6 +260,8 @@ pub extern "C-unwind" fn monitor_query_modes(
     out_args.TargetModeBufferOutputCount = number_of_modes;
 
     let in_args = unsafe { &*p_in_args };
+
+    debug!("number_of_modes:{}, in_args.TargetModeBufferInputCount:{}", &number_of_modes, &in_args.TargetModeBufferInputCount);
 
     if in_args.TargetModeBufferInputCount >= number_of_modes {
         let out_target_modes = unsafe {

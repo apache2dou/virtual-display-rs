@@ -6,6 +6,14 @@
     "configurations": [
         {
             "type": "lldb",
+            "request": "launch",
+            "name": "Launch",
+            "program": "${workspaceFolder}/rust/target/debug/virtual-display-driver-cli.exe",
+            "args": ["set-mode", "vmonitor0", "1280x720@60"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
             "request": "attach",
             "name": "Attach",
             "pid": "${command:pickMyProcess}"

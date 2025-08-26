@@ -33,6 +33,8 @@ enum Command {
     Add(AddCommand),
     /// Add a new resolution/refresh rate mode to an existing virtual monitor.
     AddMode(AddModeCommand),
+    /// Set a resolution/refresh rate mode to an existing virtual monitor.
+    SetMode(SetModeCommand),
     /// Remove a resolution/refresh rate mode to an existing virtual monitor.
     RemoveMode(RemoveModeCommand),
     /// Enable a virtual monitor.
@@ -73,6 +75,16 @@ struct AddModeCommand {
     id: String,
 
     /// One or more resolutions/refresh rates to add to the virtual monitor.
+    /// Example values: `1920x1080`, `3840x2160@120`, `1280x720@60/120`.
+    mode: Vec<mode::Mode>,
+}
+
+#[derive(Debug, Parser)]
+struct SetModeCommand {
+    /// ID or name of the virtual monitor to set a mode to.
+    id: String,
+
+    /// One or more resolutions/refresh rates to set to the virtual monitor.
     /// Example values: `1920x1080`, `3840x2160@120`, `1280x720@60/120`.
     mode: Vec<mode::Mode>,
 }
@@ -120,6 +132,9 @@ fn main() -> eyre::Result<()> {
         }
         Command::AddMode(command) => {
             add_mode(&mut client, &options, command)?;
+        }        
+        Command::SetMode(command) => {
+            set_mode(&mut client, &options, command)?;
         }
         Command::RemoveMode(command) => {
             remove_mode(&mut client, &options, &command)?;
@@ -267,6 +282,35 @@ fn add_mode(
         serde_json::to_writer_pretty(&mut stdout, &new_modes)?;
     } else {
         println!("Added modes to virtual monitor with ID {}.", id.green());
+    }
+
+    Ok(())
+}
+
+fn set_mode(
+    client: &mut DriverClient,
+    opts: &GlobalOptions,
+    command: SetModeCommand,
+) -> eyre::Result<()> {
+    let Some((id, new_modes)) = client.find_monitor_mut_query(&command.id, |monitor| {
+        let id = monitor.id;
+
+        let new_modes: Vec<driver_ipc::Mode> =
+            command.mode.into_iter().map(driver_ipc::Mode::from).collect();
+
+        monitor.modes.clone_from(&new_modes);
+        (id, new_modes)
+    }) else {
+        bail!("Monitor `{}` not found", command.id);
+    };
+
+    client.notify()?;
+
+    if opts.json {
+        let mut stdout = std::io::stdout().lock();
+        serde_json::to_writer_pretty(&mut stdout, &new_modes)?;
+    } else {
+        println!("Set modes to virtual monitor with ID {}.", id.green());
     }
 
     Ok(())

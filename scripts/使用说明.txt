@@ -1,0 +1,33 @@
+简单安装和卸载可分别执行 install.bat 和 uninstall.bat
+
+========================================================
+安装详细说明：
+1，安装证书
+	执行 install-cert2.bat
+2，写入注册表
+	执行 install.reg
+3，安装虚显驱动
+	.\nefconc.exe --remove-device-node --hardware-id Root\VirtualDisplayDriver --class-guid "4D36E968-E325-11CE-BFC1-08002BE10318"
+	.\nefconc.exe --create-device-node --class-name Display --class-guid "4D36E968-E325-11CE-BFC1-08002BE10318" --hardware-id Root\VirtualDisplayDriver
+	.\nefconc.exe --install-driver --inf-path ".\VirtualDisplayDriver.inf"
+4， 安装服务（需要管理员）
+	vdd-user-session-service.exe --install
+	sc start vdd-user-session-initializer
+
+
+======================================================
+虚拟显示器操作说明：
+virtual-display-driver-cli.exe 命令可以通过 --help查看帮助。
+1，查看显示器状态
+virtual-display-driver-cli.exe list
+2，添加显示器
+virtual-display-driver-cli.exe add  --name vmonitor0 1920x1080@60/90 2560x1440@60
+virtual-display-driver-cli.exe add  --name vmonitor1 1920x1080@60/90 2560x1440@60
+3，保存显示器设置，否则重启之后显示器归零。
+virtual-display-driver-cli.exe persist
+4，设置显示器分辨率列表
+virtual-display-driver-cli.exe set-mode vmonitor0 2561x1948@60
+virtual-display-driver-cli.exe set-mode vmonitor0 2561x1948@90 1922x1081@60
+
+
+参考网址：https://github.com/MolotovCherry/virtual-display-rs
