@@ -238,6 +238,7 @@ impl MonitorContext {
         render_adapter: LUID,
         new_frame_event: HANDLE,
     ) {
+        debug!("assign_swap_chain entering");
         // drop processing thread
         drop(self.swap_chain_processor.take());
 
@@ -268,6 +269,7 @@ impl MonitorContext {
     }
 
     pub fn unassign_swap_chain(&mut self) {
+        debug!("unassign_swap_chain entering");
         self.swap_chain_processor.take();
     }
 

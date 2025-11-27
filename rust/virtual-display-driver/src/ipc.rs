@@ -9,15 +9,17 @@ use driver_ipc::{
     Dimen, DriverCommand, EventCommand, Mode, Monitor, RefreshRate, ReplyCommand, RequestCommand,
     ServerCommand,
 };
-use log::{error, warn};
+use log::{error, warn, debug};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt as _},
     net::windows::named_pipe::{NamedPipeServer, ServerOptions},
     sync::broadcast::{self, error::RecvError, Sender},
     task,
 };
-use wdf_umdf::IddCxMonitorDeparture;
-use wdf_umdf_sys::{IDDCX_ADAPTER__, IDDCX_MONITOR__};
+use wdf_umdf::{IddCxMonitorDeparture, IddCxMonitorUpdateModes, IddCxMonitorArrival};
+use wdf_umdf_sys::{IDDCX_ADAPTER__, IDDCX_MONITOR__, IDARG_IN_UPDATEMODES, IDDCX_UPDATE_REASON, 
+    IDDCX_TARGET_MODE, IDARG_OUT_MONITORARRIVAL,
+    };
 use windows::Win32::{
     Security::{
         InitializeSecurityDescriptor, SetSecurityDescriptorDacl, PSECURITY_DESCRIPTOR,
@@ -27,6 +29,8 @@ use windows::Win32::{
 };
 
 use crate::context::DeviceContext;
+
+use crate::callbacks::target_mode;
 
 pub static ADAPTER: OnceLock<AdapterObject> = OnceLock::new();
 pub static MONITOR_MODES: LazyLock<Mutex<Vec<MonitorObject>>> =
@@ -332,7 +336,7 @@ fn notify(monitors: Vec<Monitor>) {
     lock.retain_mut(|mon| {
         let id = mon.data.id;
         let found = monitors.iter().any(|m| m.id == id);
-
+        debug!("lock id:{} found:{}", &id, &found);
         // if it doesn't exist, then add to removal list
         if !found {
             // monitor not found in monitors list, so schedule to remove it
@@ -366,17 +370,40 @@ fn notify(monitors: Vec<Monitor>) {
                         // previously was disabled, and it was just enabled
                         (!mon.data.enabled && monitor.enabled) ||
                         // OR monitor is enabled and the display modes changed
-                        (monitor.enabled && modes_changed) ||
+                        /*(monitor.enabled && modes_changed) ||*/
                         // OR monitor is enabled and the monitor was disconnected
                         (monitor.enabled && mon.object.is_none());
                 }
 
                 // should only detach if modes changed, or if state is false
-                if modes_changed || !monitor.enabled {
+                if /*modes_changed ||*/ !monitor.enabled {
                     if let Some(mut obj) = mon.object.take() {
                         let obj = unsafe { obj.as_mut() };
+                        debug!("IddCxMonitorDeparture");
                         if let Err(e) = unsafe { IddCxMonitorDeparture(obj) } {
                             error!("Failed to remove monitor: {e:?}");
+                        }
+                    }
+                }
+               
+                if monitor.enabled && modes_changed {
+                    if let Some(mut obj) = mon.object.as_mut() {
+                        let obj = unsafe { obj.as_mut() };
+                        let mut target_modes: Vec<IDDCX_TARGET_MODE> =
+                            monitor.modes.flatten().map(|mode| target_mode(mode.width, mode.height, mode.refresh_rate)).collect();
+                        let input_arg = IDARG_IN_UPDATEMODES {
+                            Reason: IDDCX_UPDATE_REASON::IDDCX_UPDATE_REASON_OTHER,
+                            pTargetModes: target_modes.as_mut_ptr(),
+                            TargetModeCount: target_modes.len() as u32,
+                        };
+                        debug!("IddCxMonitorUpdateModes, id:{} target_modes:{}", &monitor.id, &input_arg.TargetModeCount);
+                        for m in target_modes{
+                            debug!("{}x{}@{}",&m.TargetVideoSignalInfo.targetVideoSignalInfo.activeSize.cx, 
+                                &m.TargetVideoSignalInfo.targetVideoSignalInfo.activeSize.cy, 
+                                &m.TargetVideoSignalInfo.targetVideoSignalInfo.vSyncFreq.Numerator);
+                        }
+                        if let Err(e) = unsafe { IddCxMonitorUpdateModes(obj, &input_arg) } {
+                            error!("Failed to update monitor: {e:?}");
                         }
                     }
                 }
@@ -385,7 +412,7 @@ fn notify(monitors: Vec<Monitor>) {
                 mon.data = monitor;
             } else {
                 should_arrive = monitor.enabled;
-
+                debug!("!find");
                 lock.push(MonitorObject {
                     object: None,
                     data: monitor,
@@ -403,6 +430,7 @@ fn notify(monitors: Vec<Monitor>) {
         // arrive any monitors that need arriving
         for (id, arrive) in should_arrive {
             if arrive {
+                debug!("create_monitor id: {}", &id);
                 if let Err(e) = context.create_monitor(id) {
                     error!("Failed to create monitor: {e:?}");
                 }

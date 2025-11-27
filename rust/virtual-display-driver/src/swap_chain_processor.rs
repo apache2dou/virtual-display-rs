@@ -100,7 +100,7 @@ impl SwapChainProcessor {
 
         let res = unsafe { IddCxSwapChainSetDevice(swap_chain, &set_device) };
         if res.is_err() {
-            debug!("Failed to set swapchain device: {res:?}");
+            error!("Failed to set swapchain device: {res:?}");
             return;
         }
 

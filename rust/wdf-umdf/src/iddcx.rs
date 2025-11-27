@@ -8,7 +8,7 @@ use wdf_umdf_sys::{
     IDARG_IN_SETUP_HWCURSOR, IDARG_IN_SWAPCHAINSETDEVICE, IDARG_OUT_ADAPTER_INIT,
     IDARG_OUT_MONITORARRIVAL, IDARG_OUT_MONITORCREATE, IDARG_OUT_QUERY_HWCURSOR,
     IDARG_OUT_RELEASEANDACQUIREBUFFER, IDDCX_ADAPTER, IDDCX_MONITOR, IDDCX_SWAPCHAIN,
-    IDD_CX_CLIENT_CONFIG, NTSTATUS, WDFDEVICE, WDFDEVICE_INIT,
+    IDD_CX_CLIENT_CONFIG, NTSTATUS, WDFDEVICE, WDFDEVICE_INIT, IDARG_IN_UPDATEMODES,
 };
 
 #[derive(Copy, Clone, Debug, thiserror::Error)]
@@ -256,6 +256,24 @@ pub unsafe fn IddCxMonitorDeparture(
     IddCxCall!(
         IddCxMonitorDeparture(
             MonitorObject
+        )
+    )
+}
+
+/// # Safety
+///
+/// None. User is responsible for safety.
+#[rustfmt::skip]
+pub unsafe fn IddCxMonitorUpdateModes(
+    // in
+    MonitorObject: IDDCX_MONITOR,
+    // in
+    pInArgs: &IDARG_IN_UPDATEMODES 
+) -> Result<NTSTATUS, IddCxError> {
+    IddCxCall!(
+        IddCxMonitorUpdateModes(
+            MonitorObject,
+            pInArgs
         )
     )
 }

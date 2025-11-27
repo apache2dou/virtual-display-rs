@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use driver_ipc::{sync::DriverClient, Id, Monitor};
 
 #[derive(Debug, Parser)]
+#[command(version)]
 struct Args {
     #[clap(flatten)]
     options: GlobalOptions,
@@ -23,6 +24,9 @@ struct GlobalOptions {
     /// Format output as JSON.
     #[clap(short, long)]
     json: bool,
+
+    #[arg(short = 'v', action = clap::ArgAction::Version)]
+    version: (),
 }
 
 #[derive(Debug, Parser)]
@@ -166,46 +170,46 @@ fn persist(client: &mut DriverClient) -> eyre::Result<()> {
 
 fn list(client: &mut DriverClient, opts: &GlobalOptions) -> eyre::Result<()> {
     let monitors = client.monitors();
-
     if opts.json {
         let mut stdout = std::io::stdout().lock();
         serde_json::to_writer_pretty(&mut stdout, &monitors)?;
     } else if !monitors.is_empty() {
-        println!("{}", "Virtual monitors".underline());
+        //println!("{}", "Virtual monitors".underline());
+        println!("Virtual monitors");
         for (i, monitor) in monitors.iter().enumerate() {
             if i > 0 {
                 println!();
             }
-
             let name_label = lazy_format!(match (&monitor.name) {
-                Some(name) => (" {}{name}{}", "[".dimmed(), "]".dimmed()),
+                //Some(name) => (" {}{name}{}", "[".dimmed(), "]".dimmed()),
+                Some(name) => (" [{name}]" ),
                 None => "",
             });
             let disabled_label = lazy_format!(if monitor.enabled => ""
             else =>
-                (" {}", "(disabled)".red())
+                //(" {}", "(disabled)".red())
+                "(disabled)"
             );
             println!(
                 "Monitor {}{name_label}{disabled_label}:",
-                monitor.id.green(),
+                monitor.id, //.green(),
             );
-
             if monitor.modes.is_empty() {
-                println!("{} {}", "-".dimmed(), "No modes".red());
+                println!("{} {}", "-".dimmed(), "No modes" /*.red()*/ );
             } else {
                 for mode in &monitor.modes {
                     let refresh_rate_labels = mode
                         .refresh_rates
                         .iter()
-                        .map(|rate| lazy_format!("{}", rate.blue()))
+                        // .map(|rate| lazy_format!("{}", rate.blue()))
                         .join_with("/");
                     println!(
                         "{} {}{}{}{}{}",
-                        "-".dimmed(),
-                        mode.width.green(),
-                        "x".dimmed(),
-                        mode.height.green(),
-                        "@".dimmed(),
+                        "-" /*.dimmed()*/,
+                        mode.width /*.green()*/,
+                        "x" /*.dimmed()*/,
+                        mode.height /*.green()*/,
+                        "@" /*.dimmed() */,
                         refresh_rate_labels,
                     );
                 }
@@ -214,7 +218,6 @@ fn list(client: &mut DriverClient, opts: &GlobalOptions) -> eyre::Result<()> {
     } else {
         println!("No virtual monitors found.");
     }
-
     Ok(())
 }
 
