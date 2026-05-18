@@ -1,5 +1,4 @@
 mod service;
-mod set_privileges;
 
 use clap::Parser;
 use std::ffi::OsString;

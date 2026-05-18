@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::anyhow;
-use log::{error, warn, debug};
+use log::{error, warn, info, debug};
 use wdf_umdf::{
     IddCxAdapterInitAsync, IddCxError, IddCxMonitorArrival, IddCxMonitorCreate,
     IddCxMonitorSetupHardwareCursor, WdfError, WdfObjectDelete, WDF_DECLARE_CONTEXT_TYPE,
@@ -137,6 +137,16 @@ impl DeviceContext {
     }
 
     pub fn finish_init() -> NTSTATUS {
+        // Load persisted monitors from HKLM registry and create them immediately.
+        // This avoids the delay caused by waiting for vdd-user-session-service
+        // to start and send monitor config via IPC.
+        if let Some(monitors) = driver_ipc::Client::load_persisted() {
+            if !monitors.is_empty() {
+                info!("Loading {} persisted monitor(s) from registry", monitors.len());
+                crate::ipc::notify(monitors);
+            }
+        }
+
         // start the socket listener to listen for messages from the client
         startup();
 

@@ -4,9 +4,10 @@ use std::{
         Arc,
     },
     thread::{self, JoinHandle},
+    time::Duration,
 };
 
-use log::{debug, error};
+use log::{error, warn};
 use wdf_umdf::{
     IddCxSwapChainFinishedProcessingFrame, IddCxSwapChainReleaseAndAcquireBuffer,
     IddCxSwapChainSetDevice, WdfObjectDelete,
@@ -16,7 +17,7 @@ use wdf_umdf_sys::{
     NTSTATUS, WAIT_TIMEOUT, WDFOBJECT,
 };
 use windows::{
-    core::{w, Interface},
+    core::{w, IUnknown, Interface},
     Win32::{
         Foundation::HANDLE as WHANDLE,
         Graphics::Dxgi::IDXGIDevice,
@@ -95,13 +96,33 @@ impl SwapChainProcessor {
         };
 
         let set_device = IDARG_IN_SWAPCHAINSETDEVICE {
-            pDevice: dxgi_device.into_raw().cast(),
+            pDevice: dxgi_device.as_raw().cast(),
         };
 
-        let res = unsafe { IddCxSwapChainSetDevice(swap_chain, &set_device) };
-        if res.is_err() {
-            error!("Failed to set swapchain device: {res:?}");
-            return;
+        // Retry IddCxSwapChainSetDevice with exponential backoff.
+        // At boot the GPU may not be ready yet, causing transient failures.
+        let mut attempt: u32 = 0;
+        loop {
+            if terminate.load(Ordering::Relaxed) {
+                return;
+            }
+
+            let res = unsafe { IddCxSwapChainSetDevice(swap_chain, &set_device) };
+            if res.is_ok() {
+                break;
+            }
+
+            attempt += 1;
+            let delay = Duration::from_millis(100 * (1 << attempt.min(5)));
+
+            if attempt == 1 || attempt % 10 == 0 {
+                warn!(
+                    "IddCxSwapChainSetDevice failed ({:?}), attempt {} (delay {}ms)",
+                    res, attempt, delay.as_millis()
+                );
+            }
+
+            thread::sleep(delay);
         }
 
         loop {
@@ -130,6 +151,13 @@ impl SwapChainProcessor {
                 // The wait was cancelled or something unexpected happened
                 break;
             } else if hr.is_success() {
+                // Release the acquired surface's COM reference to prevent resource leaks.
+                // IddCxSwapChainReleaseAndAcquireBuffer returns a surface with an AddRef'd
+                // reference that the driver must release when done processing.
+                if !buffer.MetaData.pSurface.is_null() {
+                    drop(unsafe { IUnknown::from_raw(buffer.MetaData.pSurface.cast()) });
+                }
+
                 // This is the most performance-critical section of code in an IddCx driver. It's important that whatever
                 // is done with the acquired surface be finished as quickly as possible.
                 let hr = unsafe { IddCxSwapChainFinishedProcessingFrame(swap_chain) };

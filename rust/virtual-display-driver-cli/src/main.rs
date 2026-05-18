@@ -49,7 +49,7 @@ enum Command {
     Remove(RemoveCommand),
     /// Remove all virtual monitors.
     RemoveAll,
-    /// Persist changes to current user
+    /// Persist changes to registry
     Persist,
 }
 

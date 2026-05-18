@@ -378,7 +378,7 @@ impl PyDriverClient {
         Ok(())
     }
 
-    /// Persist monitor configuration for user
+    /// Persist monitor configuration to registry
     /// Sig: perist()
     fn persist(&mut self, py: Python) -> PyResult<()> {
         let state = pytypedlist_to_state(py, &self.monitors)?;

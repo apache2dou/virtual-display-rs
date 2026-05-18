@@ -169,28 +169,19 @@ impl Client {
         })
     }
 
-    /// Write `monitors` to the registry for current user.
+    /// Write `monitors` to the registry.
     ///
     /// Next time the driver is started, it will load this state from the
     /// registry. This might be after a reboot or a driver restart.
     pub fn persist(monitors: &[Monitor]) -> Result<(), error::PersistError> {
         use winreg::*;
 
-        let hklm = RegKey::predef(enums::HKEY_CURRENT_USER);
+        let hklm = RegKey::predef(enums::HKEY_LOCAL_MACHINE);
         let key = r"SOFTWARE\VirtualDisplayDriver";
 
-        let mut reg_key = hklm.open_subkey_with_flags(key, enums::KEY_WRITE);
-
-        // if open failed, try to create key and subkey
-        if reg_key.is_err() {
-            reg_key = hklm.create_subkey(key).map(|(key, _)| key);
-
-            if let Err(e) = reg_key {
-                return Err(error::PersistError::Open(e));
-            }
-        }
-
-        let reg_key = reg_key.unwrap();
+        let reg_key = hklm.create_subkey(key)
+            .map(|(key, _)| key)
+            .map_err(error::PersistError::Open)?;
 
         let data = serde_json::to_string(monitors)?;
 
@@ -199,6 +190,19 @@ impl Client {
             .map_err(error::PersistError::Set)?;
 
         Ok(())
+    }
+
+    /// Read persisted monitors from HKLM registry.
+    /// Used by the driver at boot to create monitors immediately.
+    pub fn load_persisted() -> Option<Vec<Monitor>> {
+        use winreg::*;
+
+        let hklm = RegKey::predef(enums::HKEY_LOCAL_MACHINE);
+        let key = r"SOFTWARE\VirtualDisplayDriver";
+
+        let reg_key = hklm.open_subkey_with_flags(key, enums::KEY_READ).ok()?;
+        let data: String = reg_key.get_value("data").ok()?;
+        serde_json::from_str(&data).ok()
     }
 }
 
